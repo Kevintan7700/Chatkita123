@@ -1,0 +1,33 @@
+from flask import Flask, render_template, redirect, url_for, request, session
+from flask_socketio import SocketIO, send
+
+app = Flask(__name__)
+app.secret_key = 'secretkey'  # Untuk session
+socketio = SocketIO(app)
+
+@app.route('/')
+def index():
+    # Cek apakah user udah login
+    if 'username' in session:
+        return render_template('index.html', username=session['username'])
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        # Validasi username (misal hanya 'daddy' atau 'mami' yang bisa login)
+        if username in ['daddy', 'mami']:
+            session['username'] = username  # Simpan username di session
+            return redirect(url_for('index'))
+        else:
+            return "Username tidak valid! Hanya 'daddy' atau 'mami' yang bisa masuk.", 403
+    return render_template('login.html')
+
+@socketio.on('message')
+def handle_message(msg):
+    print(f"Message received: {msg}")
+    send(msg, broadcast=True)  # Broadcast the message to all connected clients
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True)

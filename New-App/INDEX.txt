@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        /* Gradient bergerak */
+        @keyframes gradientMove {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        body {
+            background: linear-gradient(to right, #4caf50, #00bfae, #1e3a8a);
+            background-size: 400% 400%;
+            animation: gradientMove 15s ease infinite;
+            margin: 0; /* Remove default margin */
+            padding: 0; /* Remove default padding */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            width: 80%; /* Update width to 80% */
+            height: 90%; /* Update height to 90% */
+            background-color: #1f2937; /* Dark background */
+            color: #f9fafb; /* Light text color */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        #messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 15px;
+            background-color: #2d3748; /* Darker message background */
+            border-radius: 8px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-container input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #4a5568; /* Border color */
+            background-color: #2d3748; /* Input field dark */
+            color: #f9fafb; /* Light text in input */
+        }
+
+        .input-container button {
+            padding: 10px 15px;
+            background-color: #4c9b4e; /* Button color */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .input-container button:hover {
+            background-color: #387338; /* Darker button on hover */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <!-- Tampilkan waktu dan tanggal -->
+        <h3 class="text-2xl font-bold text-center mb-4 text-gray-200" id="current-time"></h3>
+        
+        <div id="messages"></div>
+        <div class="input-container">
+            <input id="message-input" type="text" class="input-field" placeholder="Ketik pesan...">
+            <button id="send-btn">Kirim</button>
+        </div>
+    </div>
+
+    <script>
+        var socket = io();
+
+        socket.on('message', function(msg) {
+            var messageDiv = document.createElement('div');
+            messageDiv.textContent = msg;
+            document.getElementById('messages').appendChild(messageDiv);
+            scrollToBottom();
+        });
+
+        document.getElementById('send-btn').onclick = function() {
+            sendMessage();
+        };
+
+        document.getElementById('message-input').addEventListener('keypress', function(event) {
+            // Check if Enter key is pressed (keyCode 13)
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            var message = document.getElementById('message-input').value;
+            if (message.trim() !== '') {
+                socket.send(message);
+                document.getElementById('message-input').value = '';
+                scrollToBottom();
+            }
+        }
+
+        function scrollToBottom() {
+            var messagesDiv = document.getElementById('messages');
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Fungsi untuk update waktu dengan hari, jam (AM/PM)
+        function updateTime() {
+            var now = new Date();
+            var days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+            var day = days[now.getDay()]; // Mendapatkan hari
+            var hours = now.getHours();
+            var minutes = now.getMinutes();
+            var seconds = now.getSeconds();
+            var ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // jam '0' harus jadi '12'
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            seconds = seconds < 10 ? '0' + seconds : seconds;
+            var strTime = day + ', ' + hours + ':' + minutes + ':' + seconds + ' ' + ampm;
+            document.getElementById('current-time').textContent = strTime;
+        }
+
+        // Update waktu setiap detik
+        setInterval(updateTime, 1000);
+        updateTime(); // Panggil sekali untuk set waktu awal
+    </script>
+</body>
+</html>

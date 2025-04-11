@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        /* Gradient bergerak */
+        @keyframes gradientMove {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        body {
+            background: linear-gradient(to right, #4caf50, #00bfae, #1e3a8a);
+            background-size: 400% 400%;
+            animation: gradientMove 15s ease infinite;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            width: 80%;
+            height: 90%;
+            background-color: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        #current-time {
+            border-bottom: 1px solid #4a5568; /* Add border below time */
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            text-transform: uppercase; /* Make the text uppercase */
+        }
+
+        #messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-bottom: 1px solid #4a5568; /* Add border below messages */
+            padding-bottom: 15px;
+        }
+
+        .message-container {
+            margin-bottom: 8px;
+            display: flex;
+            flex-direction: column; /* Stack message and time */
+            align-items: flex-start; /* Default align left for others */
+        }
+
+        .message-container.self {
+            align-items: flex-end; /* Align right for own messages */
+        }
+
+        .message-bubble {
+            background-color: #2d3748; /* Darker background for others */
+            color: #f9fafb;
+            padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 80%; /* Prevent long messages from breaking layout */
+            word-wrap: break-word; /* Wrap long words */
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-container.self .message-bubble {
+            background-color: #4c9b4e; /* Different background for own messages */
+        }
+
+        .message-time {
+            font-size: 0.75em;
+            color: #9ca3af; /* Gray color for time */
+            margin-top: 2px;
+        }
+
+        .input-container {
+            display: flex; /* Make it a row again */
+            gap: 10px;
+            padding-top: 10px;
+            align-items: center; /* Align items vertically in the center */
+        }
+
+        .input-container input#message-input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #4a5568;
+            background-color: #2d3748;
+            color: #f9fafb;
+        }
+
+        .input-container input#image-input {
+            display: none; /* Tetap sembunyikan input file */
+        }
+
+        .input-container button#send-btn {
+            padding: 10px 15px;
+            background-color: #4c9b4e;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .input-container button#send-btn:hover {
+            background-color: #387338;
+        }
+
+        .input-container button#attach-btn {
+            padding: 10px 15px;
+            background-color: #6b7280; /* Warna abu-abu untuk tombol lampirkan */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .input-container button#attach-btn:hover {
+            background-color: #4a5568;
+        }
+
+        .emoji-container {
+            display: flex; /* Mengatur elemen di dalamnya menjadi horizontal */
+            gap: 10px; /* Memberikan jarak antar tombol emoji */
+            margin-top: 10px; /* Memberikan jarak dari input */
+        }
+
+        .emoji-btn {
+            flex: 1; /* Membuat tombol memiliki lebar yang sama */
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background-color: #2d3748; /* Warna background yang sesuai dengan input */
+            color: #f9fafb;
+            cursor: pointer;
+            font-size: 1.2em;
+            text-align: center; /* Agar emoji berada di tengah tombol */
+        }
+
+        .emoji-btn:hover {
+            background-color: #4a5568; /* Efek hover yang halus */
+        }
+
+        .message-bubble.single-emoji {
+            font-size: 2em; /* Atau ukuran yang kamu inginkan */
+            padding: 15px 20px; /* Sesuaikan padding jika perlu */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="chat-container">
+        <h3 class="text-2xl font-bold text-center mb-4 text-gray-200" id="current-time"></h3>
+
+        <div id="messages"></div>
+        <div class="input-container">
+            <input id="message-input" type="text" class="input-field" placeholder="Ketik pesan...">
+            <input id="image-input" type="file" accept="image/png, image/jpeg, image/gif" class="hidden">
+            <button id="send-btn" style="padding: 0; border: none; background: none; cursor: pointer;">
+                <img src="https://cdn-icons-png.flaticon.com/512/3682/3682321.png" alt="Kirim" style="width: 30px; height: 30px;">
+            </button>
+            <button id="attach-btn" style="padding: 0; border: none; background: none; cursor: pointer;">
+                <img src="https://cdn-icons-png.flaticon.com/512/1160/1160593.png" alt="Lampirkan" style="width: 30px; height: 30px;">
+            </button>
+        </div>
+        <div class="emoji-container">
+            <button class="emoji-btn">😊</button>
+            <button class="emoji-btn">😂</button>
+            <button class="emoji-btn">❤️</button>
+            <button class="emoji-btn">👍</button>
+            <button class="emoji-btn">🙏</button>
+            <button class="emoji-btn">🤔</button>
+        </div>
+    </div>
+
+    <script>
+        var socket = io();
+        var username = "{{ username }}"; // Ambil username dari template Flask
+        var messageInput = document.getElementById('message-input');
+        var sendBtn = document.getElementById('send-btn');
+        var attachBtn = document.getElementById('attach-btn'); // Tombol Lampirkan
+        var imageInput = document.getElementById('image-input'); // Input file gambar
+        var emojiButtons = document.querySelectorAll('.emoji-btn'); // Mendapatkan semua tombol emoji
+        var messagesContainer = document.getElementById('messages');
+
+        socket.on('message', function(data) {
+            const parsedData = JSON.parse(data); // Parse data JSON
+            if (parsedData.username !== username) { // Cek apakah pengirim bukan kita sendiri
+                displayMessage(parsedData.username, parsedData.message, false, parsedData.isImage); // Tambahkan parameter isImage
+            }
+        });
+
+        sendBtn.onclick = function() {
+            sendMessage();
+        };
+
+        messageInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        attachBtn.onclick = function() {
+            imageInput.click(); // Memicu dialog pemilihan file saat tombol Lampirkan diklik
+        };
+
+        imageInput.addEventListener('change', function() {
+            handleImageUpload(); // Panggil fungsi untuk menangani upload gambar
+        });
+
+        function handleImageUpload() {
+            const file = imageInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    const base64Image = reader.result;
+                    sendMessage(base64Image); // Kirim data URL gambar
+                }
+                reader.readAsDataURL(file);
+                imageInput.value = ''; // Reset input file setelah dipilih
+            }
+        }
+
+        function sendMessage(messageOrImage) {
+            let messageToSend = messageInput.value;
+            let isImage = false;
+
+            if (messageOrImage) {
+                messageToSend = messageOrImage;
+                isImage = messageOrImage.startsWith('data:image/'); // Cek apakah ini data URL gambar
+            }
+
+            if (messageToSend.trim() !== '' || isImage) {
+                const dataToSend = {
+                    username: username,
+                    message: messageToSend,
+                    isImage: isImage
+                };
+                socket.send(JSON.stringify(dataToSend)); // Kirim sebagai JSON
+
+                displayMessage(username, messageToSend, true, isImage); // Tambahkan parameter isImage
+                messageInput.value = '';
+                scrollToBottom();
+            }
+        }
+
+        function displayMessage(user, msg, isSelf, isImage = false) {
+            var messageContainer = document.createElement('div');
+            messageContainer.classList.add('message-container');
+            if (isSelf) {
+                messageContainer.classList.add('self');
+            }
+
+            var messageBubble = document.createElement('div');
+            messageBubble.classList.add('message-bubble');
+
+            if (isImage) {
+                const img = document.createElement('img');
+                img.src = msg;
+                img.style.maxWidth = '200px'; // Sesuaikan ukuran gambar
+                img.style.height = 'auto';
+                messageBubble.appendChild(img);
+            } else {
+                // Cek apakah pesan hanya berisi satu emoji
+                const emojiRegex = /^(?:\uD83E[\uDD10-\uDDEE]|\uD83C[\uDDE6-\uDDFF\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F\uDE80-\uDEFF]|\u2600-\u26FF|\u2700-\u27BF)(?:\uFE0F\u20E3)?$/u;
+                const isSingleEmoji = msg.trim().match(emojiRegex) !== null && msg.trim().length === msg.trim().length;
+
+                if (isSingleEmoji) {
+                    messageBubble.classList.add('single-emoji');
+                }
+                messageBubble.textContent = msg;
+            }
+
+            var messageTime = document.createElement('div');
+            messageTime.classList.add('message-time');
+            var now = new Date();
+            var hours = now.getHours();
+            var minutes = now.getMinutes();
+            var ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            minutes = minutes < 10 ? '0'+minutes : minutes;
+            var timeStr = hours + ':' + minutes + ' ' + ampm;
+            messageTime.textContent = timeStr;
+
+            messageContainer.appendChild(messageBubble);
+            messageContainer.appendChild(messageTime);
+            messagesContainer.appendChild(messageContainer);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function updateTime() {
+            var now = new Date();
+            var days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+            var day = days[now.getDay()];
+            var hours = now.getHours();
+            var minutes = now.getMinutes();
+            var seconds = now.getSeconds();
+            var ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            seconds = seconds < 10 ? '0' + seconds : seconds;
+            var strTime = day + ', ' + hours + ':' + minutes + ':' + seconds + ' ' + ampm;
+            document.getElementById('current-time').textContent = strTime;
+        }
+
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Event listener untuk setiap tombol emoji
+        emojiButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                var emoji = this.textContent; // Mendapatkan teks emoji dari tombol yang diklik
+                messageInput.value += emoji; // Menambahkan emoji ke dalam input
+            });
+        });
+    </script>
+</body>
+</html>
