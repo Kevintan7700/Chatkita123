@@ -7,6 +7,7 @@ app = Flask(__name__)
 app.secret_key = 'secretkey'
 socketio = SocketIO(app)
 
+PASSCODE = "DaddyMami290322"  # Ganti dengan passcode yang kamu inginkan
 users = {}  # Dictionary untuk menyimpan username berdasarkan session ID
 CHAT_HISTORY_FILE = 'chat_history.json'
 chat_history = []
